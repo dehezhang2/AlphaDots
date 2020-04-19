@@ -48,6 +48,9 @@
 
 ## Shortest/Longest path, A* algorithm
 
+* ref: 
+  * <https://www.youtube.com/watch?v=tjQIO1rqTBE&t=1s>
+
 * Transfer the snake into a maze problem with wall moving
 
 * Methods:
