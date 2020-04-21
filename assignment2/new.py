@@ -116,7 +116,7 @@ class Board:
         
         return Board(gamestate_sim)
 
-    def take_move_chain(self, maxDepth):
+    def take_move_chain(self, maxDepth, chmod):
         # take a chain of moves as long as there are completable squares
         m = self.dimensions[0]; n = self.dimensions[1]
         current_board = self
@@ -147,6 +147,36 @@ class Board:
             
             completable_squares = [i for i, square in enumerate(current_board.squares) if square == 3]
             num_completable_squaresd = len(completable_squares)
+        if chmod and (not current_board.finished()):
+            current_board = current_board.take_random_move()
+            completable_squares = [i for i, square in enumerate(current_board.squares) if square == 3]
+            if len(completable_squares) == 0:
+                return current_board
+            currentDepth = 0
+            while len(completable_squares) > 0 and currentDepth < maxDepth and (not current_board.finished()):
+                currentDepth += 1
+                idx = random.randint(0, len(completable_squares)-1)
+                x = completable_squares[idx] // (n-1)
+                y = completable_squares[idx] % (n-1)
+                line1 = ([x, y], [x + 1, y])
+                line2 = ([x, y], [x, y + 1])
+                line3 = ([x + 1, y], [x + 1, y + 1])
+                line4 = ([x, y + 1], [x + 1, y + 1])
+    
+                grid = current_board.grid
+                if grid[str(line1)][2] == -1 :
+                    current_board = current_board.take_move(line1)
+                elif grid[str(line2)][2] == -1 :
+                    current_board = current_board.take_move(line2)
+                elif grid[str(line3)][2] == -1 :
+                    current_board = current_board.take_move(line3)
+                elif grid[str(line4)][2] == -1 :
+                    current_board = current_board.take_move(line4)
+                
+                completable_squares = [i for i, square in enumerate(current_board.squares) if square == 3]
+                num_completable_squaresd = len(completable_squares)
+            
+            
         return current_board
     
     def get_legal_moves(self):
@@ -187,10 +217,10 @@ class Board:
         score = current_score + num_completable_squares
         return score
 
-    def evaluate_2(self): 
+    def evaluate_2(self, chmod): 
         # Heuristic evaluation based on simulation
         # There will be a chain of simulation until the player is changed (i.e. 0 score exists)
-        return (self.take_move_chain(15)).evaluate()
+        return (self.take_move_chain(15, chmod)).evaluate()
 
     def isWin(self):
         return self.my_score > self.opp_score
@@ -297,9 +327,9 @@ class MCTS:
         return action
 
 # main algorithm
-def abnegamax(board, maxDepth, currentDepth, alpha, beta):
+def abnegamax(board, maxDepth, currentDepth, alpha, beta, chmod):
     if board.finished() or (maxDepth == currentDepth) :
-        score = board.evaluate_2()
+        score = board.evaluate_2(chmod)
         return score, None
     
     bestMove = []
@@ -314,10 +344,10 @@ def abnegamax(board, maxDepth, currentDepth, alpha, beta):
 
         # calculate the bestscore for the newstate and store
         if board.isMover() == newBoard.isMover():
-            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, max(alpha, bestScore), beta)
+            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, max(alpha, bestScore), beta, chmod)
             currentScore = recursedScore
         else:
-            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, -beta, -max(alpha, bestScore))
+            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, -beta, -max(alpha, bestScore), chmod)
             currentScore = -recursedScore
             
         # Update the best score
@@ -343,8 +373,8 @@ def calculate_move(gamestate):
     board = Board(gamestate)
     # empty the transposition table
     move_num = len(board.get_legal_moves())
-    depth = 2 if move_num > 19 else 3
-    (bestScore, bestMoves) = abnegamax(board, depth, 0, -INFINITY, INFINITY)
+    chmod = False if move_num > 19 else True
+    (bestScore, bestMoves) = abnegamax(board, 2, 0, -INFINITY, INFINITY, chmod)
     idx = random.randint(0, len(bestMove) - 1) if RANDOMIZE == True else 0
     action = bestMoves[idx]
     if len(bestMoves) > 35:
