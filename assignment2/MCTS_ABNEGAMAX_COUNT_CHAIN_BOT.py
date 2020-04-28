@@ -22,6 +22,11 @@ import numpy as np
 INFINITY = 100000000000
 # Turn off the randomization of the best move, choose the first move
 RANDOMIZE = False
+
+IS_FIRST = False
+IS_CHECKED = False
+
+
 def from_list_to_dict(gamestate):
     gamedict = {}
     gamedict['Dimensions'] = gamestate['Dimensions']
@@ -163,7 +168,59 @@ class Board:
         legal_moves = self.get_legal_moves()
         x = random.randint(0, len(legal_moves)-1)
         return self.take_move(legal_moves[x])
-        
+
+    def expand(self, square, visited):
+        if visited[square]:
+            return -1
+        visited[square] = True 
+        if self.squares[square] != 2:
+            return 0
+        m = self.dimensions[0]; n = self.dimensions[1]
+        x = square // (n-1)
+        y = square % (n-1)
+        line1 = ([x, y], [x + 1, y])
+        line2 = ([x, y], [x, y + 1])
+        line3 = ([x + 1, y], [x + 1, y + 1])
+        line4 = ([x, y + 1], [x + 1, y + 1])
+
+        grid = self.grid
+        cnt = 1
+        if grid[str(line1)][2] == -1 and y != 0:
+            res = self.expand(square-1, visited)
+            if res == -1:
+                return -1
+            else:
+                cnt += res
+        elif grid[str(line2)][2] == -1 and x != 0:
+            res = self.expand(square - (n-1), visited)
+            if res == -1:
+                return -1
+            else:
+                cnt += res
+        elif grid[str(line3)][2] == -1 and x != (m-1) :
+            res = self.expand(square + (n-1), visited)
+            if res == -1:
+                return -1
+            else:
+                cnt += res
+        elif grid[str(line4)][2] == -1 and y != (n-1) :
+            res = self.expand(square + 1, visited)
+            if res == -1:
+                return -1
+            else:
+                cnt += res
+        return cnt
+
+    def count_chains(self):
+        visited = [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
+        cnt = 0
+        for square in range(0, 16):
+            if not visited[square]:
+                res = self.expand(square, visited)
+                if res > 2:
+                    cnt += 1
+        return cnt
+
     def evaluate(self):
         score = self.my_score - self.opp_score
         return (score if self.is_mover else -score)
@@ -182,6 +239,18 @@ class Board:
     def evaluate_2(self): 
         # Heuristic evaluation based on simulation
         # There will be a chain of simulation until the player is changed (i.e. 0 score exists)
+        newBoard = self.take_move_chain(16)
+        score = newBoard.evaluate()
+        chain_num = self.count_chains()
+        
+        if score == 0:
+            if IS_FIRST == self.isMover():
+                # odd chain prefered
+                score += (1 if (chain_num%2 != 0) else -1)
+            else:
+                # even chain prefered
+                score += (1 if (chain_num%2 == 0) else -1)
+
         return (self.take_move_chain(16)).evaluate()
 
     def isWin(self):
@@ -332,10 +401,15 @@ def abnegamax(board, maxDepth, currentDepth, alpha, beta):
 
 # function will be called
 def calculate_move(gamestate):
+    global IS_CHECKED, IS_FIRST
     gamestate = from_list_to_dict(gamestate)
     board = Board(gamestate)
     move_num = len(board.get_legal_moves())
-    
+    if IS_CHECKED == False:
+        IS_FIRST = (move_num == 40)
+        IS_CHECKED = True
+    print(IS_FIRST)
+
     depth = 2
     if move_num <= 6:
         depth = move_num

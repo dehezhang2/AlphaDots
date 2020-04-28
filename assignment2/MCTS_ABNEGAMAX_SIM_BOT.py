@@ -22,6 +22,7 @@ import numpy as np
 INFINITY = 100000000000
 # Turn off the randomization of the best move, choose the first move
 RANDOMIZE = False
+
 def from_list_to_dict(gamestate):
     gamedict = {}
     gamedict['Dimensions'] = gamestate['Dimensions']
@@ -179,10 +180,14 @@ class Board:
         score = current_score + num_completable_squares
         return score
 
-    def evaluate_2(self): 
+    def evaluate_2(self, more_sim): 
         # Heuristic evaluation based on simulation
         # There will be a chain of simulation until the player is changed (i.e. 0 score exists)
-        return (self.take_move_chain(16)).evaluate()
+        newBoard = self.take_move_chain(16)
+        if more_sim :
+            (bestScore, bestMoves) = abnegamax(newBoard, 2, 0, -INFINITY, INFINITY, False)
+            newBoard = newBoard.take_move(bestMoves[0])
+        return newBoard.evaluate()
 
     def isWin(self):
         return self.my_score > self.opp_score
@@ -290,9 +295,9 @@ class MCTS:
         return action
 
 # main algorithm
-def abnegamax(board, maxDepth, currentDepth, alpha, beta):
+def abnegamax(board, maxDepth, currentDepth, alpha, beta, more_sim):
     if board.finished() or (maxDepth == currentDepth) :
-        score = board.evaluate_2()
+        score = board.evaluate_2(more_sim)
         return score, None
     
     bestMove = []
@@ -307,10 +312,10 @@ def abnegamax(board, maxDepth, currentDepth, alpha, beta):
 
         # calculate the bestscore for the newstate and store
         if board.isMover() == newBoard.isMover():
-            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, max(alpha, bestScore), beta)
+            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, max(alpha, bestScore), beta, more_sim)
             currentScore = recursedScore
         else:
-            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, -beta, -max(alpha, bestScore))
+            (recursedScore, currentMove) = abnegamax(newBoard, maxDepth, currentDepth+1, -beta, -max(alpha, bestScore), more_sim)
             currentScore = -recursedScore
             
         # Update the best score
@@ -332,20 +337,24 @@ def abnegamax(board, maxDepth, currentDepth, alpha, beta):
 
 # function will be called
 def calculate_move(gamestate):
+    global MORE_SIM
     gamestate = from_list_to_dict(gamestate)
     board = Board(gamestate)
     move_num = len(board.get_legal_moves())
     
     depth = 2
-    if move_num <= 6:
-        depth = move_num
-    elif move_num <= 8:
-        depth = 5
-    elif move_num <= 10:
-        depth = 4
-    elif move_num <= 18:
-        depth = 3
-    (bestScore, bestMoves) = abnegamax(board, depth, 0, -INFINITY, INFINITY)
+    # if move_num <= 6:
+    #     depth = move_num
+    # elif move_num <= 8:
+    #     depth = 5
+    # elif move_num <= 10:
+    #     depth = 4
+    # elif move_num <= 18:
+    #     depth = 3
+
+    more_sim = (move_num <= 18)
+    
+    (bestScore, bestMoves) = abnegamax(board, depth, 0, -INFINITY, INFINITY, more_sim)
     
     idx = random.randint(0, len(bestMove) - 1) if RANDOMIZE == True else 0
     action = bestMoves[idx]
